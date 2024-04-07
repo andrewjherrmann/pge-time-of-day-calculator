@@ -9,13 +9,13 @@
           icon="menu"
           aria-label="Menu"
           @click="toggleLeftDrawer"
+          v-if="false"
         />
 
         <q-toolbar-title>
-          Quasar App
+          PGE Time of Day Calculator
         </q-toolbar-title>
-
-        <div>Quasar v{{ $q.version }}</div>
+        
       </q-toolbar>
     </q-header>
 
@@ -23,6 +23,7 @@
       v-model="leftDrawerOpen"
       show-if-above
       bordered
+      v-if="false"
     >
       <q-list>
         <q-item-label
