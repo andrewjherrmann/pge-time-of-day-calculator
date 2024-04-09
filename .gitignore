@@ -128,3 +128,7 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+src/.quasar/app.js
+src/.quasar/client-entry.js
+src/.quasar/client-prefetch.js
+src/.quasar/quasar-user-options.js
