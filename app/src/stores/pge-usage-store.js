@@ -120,11 +120,17 @@ export const usePgeUsageStore = defineStore('pge-usage', {
 
     },
 
+    cleanFileString(csvString) {
+      let headerIndex = csvString.indexOf("TYPE,DATE,START TIME,END TIME,USAGE (kWh),COST,NOTES");
+      return csvString.substring(headerIndex);
+    },
+
     async processFiles(files) {
-      this.processing = "Parsing CSV Files";
+      this.processing =   "Parsing CSV Files";
       this.historicalData = [];
       for (let i = 0; i < files.length; i++) {
-        const csv = await this.parseFile(files[i]);
+        let csv = await this.parseFile(files[i]);
+        csv = this.cleanFileString(csv);
         const jsonArray = await csvtojson().fromString(csv);
         this.historicalData = this.historicalData.concat(jsonArray);
       }
