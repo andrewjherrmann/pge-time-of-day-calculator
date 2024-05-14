@@ -1,5 +1,6 @@
 <template>
   <div>
+    <q-toggle v-model="shiftUsageToOffPeak">Shift Usage to Off Peak</q-toggle>
     <BarChart  class="q-mt-xl" :chart-data="barChartData" :chart-options="barChartOptions"
       v-if="totalBasicServiceCharges && totalTimeOfUseServiceCharges" />
     <BarChart  class="q-mt-xl" :chart-data="monthlyBarChartData" :chart-options="monthlyBarChartOptions"
@@ -8,7 +9,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { Info } from 'luxon';
 import { usePgeUsageStore } from './../stores/pge-usage-store';
 import BarChart from "./Charts/BarChart.vue";
@@ -20,6 +21,7 @@ defineOptions({
 const pgeUsageStore = usePgeUsageStore()
 
 //ref
+const shiftUsageToOffPeak = ref(false);
 const barChartOptions = ref({
   plugins: {
     title: {
@@ -73,5 +75,10 @@ const barChartData = computed(() => {
   }
 })
 const monthlyBarChartData = computed(() => pgeUsageStore.monthlyBarChartData)
+
+//watcher
+watch(shiftUsageToOffPeak, (newVal, oldVal) => {
+  console.log("I Changed!", newVal)
+})
 
 </script>
