@@ -22,6 +22,12 @@ export const usePgeUsageStore = defineStore('pge-usage', {
       offPeak: 0.0839,
       midPeak: 0.1577,
       onPeak: 0.4111
+    },
+    updatedPricing: {
+      basic: 0.1966,
+      offPeak: 0.0839,
+      midPeak: 0.1577,
+      onPeak: 0.4111
     }
   }),
   getters: {
@@ -92,7 +98,12 @@ export const usePgeUsageStore = defineStore('pge-usage', {
       this.dateRange.maxMonth = this.dateRange.maxDateTime.month;
       this.dateRange.maxYear = this.dateRange.maxDateTime.year;
     },
-    processPricing() {
+    processPricing(shiftToOffPeak) {
+      this.updatedPricing = {...this.pricing};
+      if(shiftToOffPeak) {
+        this.updatedPricing["midPeak"] = this.updatedPricing["offPeak"];
+        this.updatedPricing["onPeak"] = this.updatedPricing["offPeak"];
+      }
       this.processing = "Processing Pricing";
       let timeOfUseTotals = {
         category: "timeOfUse",
@@ -100,8 +111,8 @@ export const usePgeUsageStore = defineStore('pge-usage', {
         kwhUsageCost: 0
       };
 
-      for (let i = 0; i < Object.keys(this.pricing).length; i++) {
-        let category = Object.keys(this.pricing)[i];
+      for (let i = 0; i < Object.keys(this.updatedPricing).length; i++) {
+        let category = Object.keys(this.updatedPricing)[i];
         let categoryData = category === "basic" ? this.historicalData : this.historicalData.filter(hd => hd.timeOfDayBucket === category);
         let totals = this.calculateKwhUsageTotals(category, categoryData);
         this.calculateMonthlyTotals(category, categoryData);
@@ -141,6 +152,11 @@ export const usePgeUsageStore = defineStore('pge-usage', {
 
       this.calculateBarChartData();
 
+      this.processing = null;
+    },
+    recalculatePricing(shiftToOffPeak) {
+      this.processPricing(shiftToOffPeak);
+      this.calculateBarChartData();
       this.processing = null;
     },
     calculateBarChartData() {
@@ -186,7 +202,7 @@ export const usePgeUsageStore = defineStore('pge-usage', {
       }
     },
     calculateKwhUsageTotals(category, data) {
-      let pricing = this.pricing[category]
+      let pricing = this.updatedPricing[category]
       let usageData = data.map(cd => cd.kwhUsage);
       let sumKwhUsage = 0;
       if (data.length) {

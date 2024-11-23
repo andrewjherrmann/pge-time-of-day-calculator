@@ -1,6 +1,6 @@
 <template>
   <div>
-    <q-toggle v-model="shiftUsageToOffPeak">Shift Usage to Off Peak</q-toggle>
+    <q-toggle v-model="shiftUsageToOffPeak">Shift Usage to Off Peak Pricing</q-toggle>
     <BarChart  class="q-mt-xl" :chart-data="barChartData" :chart-options="barChartOptions"
       v-if="totalBasicServiceCharges && totalTimeOfUseServiceCharges" />
     <BarChart  class="q-mt-xl" :chart-data="monthlyBarChartData" :chart-options="monthlyBarChartOptions"
@@ -78,7 +78,7 @@ const monthlyBarChartData = computed(() => pgeUsageStore.monthlyBarChartData)
 
 //watcher
 watch(shiftUsageToOffPeak, (newVal, oldVal) => {
-  console.log("I Changed!", newVal)
+  pgeUsageStore.recalculatePricing(newVal);
 })
 
 </script>

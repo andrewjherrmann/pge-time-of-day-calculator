@@ -113,6 +113,7 @@ module.exports = configure(function (/* ctx */) {
       // Quasar plugins
       plugins: []
     },
+    sourcemap: true,
 
     // animations: 'all', // --- includes all animations
     // https://v2.quasar.dev/options/animations
