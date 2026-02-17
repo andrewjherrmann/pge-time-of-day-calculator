@@ -28,6 +28,11 @@ const barChartOptions = ref({
       display: true,
       text: 'Basic vs. Time of Day Analysis'
     },
+    datalabels: {
+      anchor: 'end',
+      align: 'top',
+      formatter: (value) => typeof value === 'number' ? `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : value
+    }
   },
   responsive: true,
   scales: {
@@ -43,6 +48,9 @@ const monthlyBarChartOptions = ref({
       display: true,
       text: 'Monthly Analysis'
     },
+    datalabels: {
+      display: false
+    }
   },
   responsive: true,
   scales: {
