@@ -46,66 +46,97 @@ export const usePgeUsageStore = defineStore('pge-usage', {
     processData() {
       this.processing = "Processing Data";
 
-      for (let i = 0; i < this.historicalData.length; i++) {
-        const entry = this.historicalData[i];
-        entry.date = entry["DATE"];
-        entry.startTime = entry["START TIME"];
-        entry.endTime = entry["END TIME"];
-        let kwhUsage = Number.parseFloat(entry["USAGE (kWh)"]);
-        if (Number.isNaN(kwhUsage)) {
-          kwhUsage = 0;
-        }
-        entry.kwhUsage = kwhUsage;
-        entry.startDateTime = DateTime.fromFormat(`${entry.date} ${entry.startTime}`, "yyyy-MM-dd HH:mm")
-        entry.endDateTime = DateTime.fromFormat(`${entry.date} ${entry.endTime}`, "yyyy-MM-dd HH:mm").plus({ minute: 1 }).minus({ millisecond: 1 })
-        entry.dayOfWeek = entry.startDateTime.toLocaleString({ weekday: 'long' });
-        entry.monthName = entry.startDateTime.toLocaleString({ month: 'long' });
-        entry.month = entry.startDateTime.month;
-        entry.year = entry.startDateTime.year;
-        if (["Saturday", "Sunday"].includes(entry.dayOfWeek)) {
-          entry.timeOfDayBucket = "offPeak";
-        } else if ((entry.startDateTime.hour >= 0 && entry.startDateTime.hour < 7) ||
-          (entry.startDateTime.hour >= 21)) {
-          entry.timeOfDayBucket = "offPeak";
-        } else if (entry.startDateTime.hour >= 7 && entry.startDateTime.hour < 17) {
-          entry.timeOfDayBucket = "midPeak";
+      const raw = this.historicalData;
+      const processed = [];
+      let minDateTime = null;
+      let maxDateTime = null;
+
+      for (let i = 0; i < raw.length; i++) {
+        const row = raw[i];
+        const date = row["DATE"];
+        const startTime = row["START TIME"];
+        const endTime = row["END TIME"];
+        let kwhUsage = Number.parseFloat(row["USAGE (kWh)"]);
+        if (Number.isNaN(kwhUsage)) kwhUsage = 0;
+
+        const startDateTime = DateTime.fromFormat(`${date} ${startTime}`, "yyyy-MM-dd HH:mm");
+        const endDateTime = DateTime.fromFormat(`${date} ${endTime}`, "yyyy-MM-dd HH:mm").plus({ minute: 1 }).minus({ millisecond: 1 });
+        const dayOfWeek = startDateTime.toLocaleString({ weekday: 'long' });
+        const monthName = startDateTime.toLocaleString({ month: 'long' });
+        const month = startDateTime.month;
+        const year = startDateTime.year;
+
+        let timeOfDayBucket;
+        if (["Saturday", "Sunday"].includes(dayOfWeek)) {
+          timeOfDayBucket = "offPeak";
+        } else if ((startDateTime.hour >= 0 && startDateTime.hour < 7) || startDateTime.hour >= 21) {
+          timeOfDayBucket = "offPeak";
+        } else if (startDateTime.hour >= 7 && startDateTime.hour < 17) {
+          timeOfDayBucket = "midPeak";
         } else {
-          entry.timeOfDayBucket = "onPeak";
+          timeOfDayBucket = "onPeak";
         }
-        if (i === 0 && entry.startDateTime.isValid) {
-          this.dateRange.minDateTime = entry.startDateTime;
+
+        processed.push({
+          date,
+          startTime,
+          endTime,
+          kwhUsage,
+          startDateTime,
+          endDateTime,
+          dayOfWeek,
+          monthName,
+          month,
+          year,
+          timeOfDayBucket,
+        });
+
+        if (startDateTime.isValid && (minDateTime === null || startDateTime < minDateTime)) {
+          minDateTime = startDateTime;
         }
-        if (i === 0 && entry.endDateTime.isValid) {
-          this.dateRange.maxDateTime = entry.endDateTime;
-        }
-        if (entry.startDateTime.isValid && entry.startDateTime < this.dateRange.minDateTime) {
-          this.dateRange.minDateTime = entry.startDateTime;
-        }
-        if (entry.endDateTime.isValid && entry.endDateTime > this.dateRange.maxDateTime) {
-          this.dateRange.maxDateTime = entry.endDateTime;
+        if (endDateTime.isValid && (maxDateTime === null || endDateTime > maxDateTime)) {
+          maxDateTime = endDateTime;
         }
       }
 
-      //Set minimum and maximum month and year
-      this.dateRange.minMonth = this.dateRange.minDateTime.month;
-      this.dateRange.minYear = this.dateRange.minDateTime.year;
-      this.dateRange.maxMonth = this.dateRange.maxDateTime.month;
-      this.dateRange.maxYear = this.dateRange.maxDateTime.year;
+      this.historicalData = processed;
+      this.dateRange.minDateTime = minDateTime;
+      this.dateRange.maxDateTime = maxDateTime;
+      this.dateRange.minMonth = minDateTime?.month ?? null;
+      this.dateRange.minYear = minDateTime?.year ?? null;
+      this.dateRange.maxMonth = maxDateTime?.month ?? null;
+      this.dateRange.maxYear = maxDateTime?.year ?? null;
     },
     processPricing() {
       this.processing = "Processing Pricing";
-      let timeOfUseTotals = {
+      this.timeOfDayBuckets = [];
+      this.yearlyBuckets = [];
+
+      const dataByYearMonth = new Map();
+      for (let i = 0; i < this.historicalData.length; i++) {
+        const d = this.historicalData[i];
+        const key = `${d.year}-${d.month}`;
+        let arr = dataByYearMonth.get(key);
+        if (!arr) {
+          arr = [];
+          dataByYearMonth.set(key, arr);
+        }
+        arr.push(d);
+      }
+
+      this._dataByYearMonth = dataByYearMonth;
+      const timeOfUseTotals = {
         category: "timeOfUse",
         sumKwhUsage: 0,
         kwhUsageCost: 0
       };
 
-      for (let i = 0; i < Object.keys(this.pricing).length; i++) {
-        let category = Object.keys(this.pricing)[i];
-        let categoryData = category === "basic" ? this.historicalData : this.historicalData.filter(hd => hd.timeOfDayBucket === category);
-        let totals = this.calculateKwhUsageTotals(category, categoryData);
+      const categories = Object.keys(this.pricing);
+      for (let i = 0; i < categories.length; i++) {
+        const category = categories[i];
+        const categoryData = category === "basic" ? this.historicalData : this.historicalData.filter((hd) => hd.timeOfDayBucket === category);
+        const totals = this.calculateKwhUsageTotals(category, categoryData);
         this.calculateMonthlyTotals(category, categoryData);
-
         this.timeOfDayBuckets.push(totals);
 
         if (category !== "basic") {
@@ -115,9 +146,7 @@ export const usePgeUsageStore = defineStore('pge-usage', {
       }
 
       this.timeOfDayBuckets.push(timeOfUseTotals);
-
-      console.log(this.timeOfDayBuckets);
-
+      this._dataByYearMonth = null;
     },
 
     cleanFileString(csvString) {
@@ -180,7 +209,14 @@ export const usePgeUsageStore = defineStore('pge-usage', {
             }
             year.months.push(month);
           }
-          let monthlyData = data.filter(d => d.year === i && d.monthName === monthName);
+          let monthlyData;
+          if (this._dataByYearMonth) {
+            const key = `${i}-${j}`;
+            const monthData = this._dataByYearMonth.get(key) || [];
+            monthlyData = category === "basic" ? monthData : monthData.filter((d) => d.timeOfDayBucket === category);
+          } else {
+            monthlyData = data.filter(d => d.year === i && d.monthName === monthName);
+          }
           month[category] = this.calculateKwhUsageTotals(category, monthlyData);
         }
       }
