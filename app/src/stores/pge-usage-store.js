@@ -19,9 +19,9 @@ export const usePgeUsageStore = defineStore('pge-usage', {
     },
     pricing: {
       basic: 0.1966,
-      offPeak: 0.0839,
-      midPeak: 0.1577,
-      onPeak: 0.4111
+      offPeak: 0.0908,
+      midPeak: 0.1699,
+      onPeak: 0.4389
     }
   }),
   getters: {
@@ -59,6 +59,9 @@ export const usePgeUsageStore = defineStore('pge-usage', {
         const endTime = row["END TIME"];
         let kwhUsage = Number.parseFloat(row["USAGE (kWh)"]);
         if (Number.isNaN(kwhUsage)) kwhUsage = 0;
+        const costStr = row["COST"];
+        const cost = costStr != null && costStr !== '' ? Number.parseFloat(String(costStr).replace(/[$,]/g, '')) : 0;
+        const actualCost = Number.isNaN(cost) ? 0 : cost;
 
         const startStr = `${date} ${startTime}`;
         const endStr = `${date} ${endTime}`;
@@ -87,6 +90,7 @@ export const usePgeUsageStore = defineStore('pge-usage', {
           startTime,
           endTime,
           kwhUsage,
+          actualCost,
           month,
           year,
           monthName,
@@ -220,20 +224,22 @@ export const usePgeUsageStore = defineStore('pge-usage', {
       }
     },
     calculateKwhUsageTotals(category, data) {
-      let pricing = this.pricing[category]
-      let usageData = data.map(cd => cd.kwhUsage);
-      let sumKwhUsage = 0;
-      if (data.length) {
-        sumKwhUsage = usageData.reduce(
-          (accumulator, currentValue) => accumulator + currentValue
-        );
+      const sumKwhUsage = data.length
+        ? data.reduce((acc, d) => acc + (d.kwhUsage || 0), 0)
+        : 0;
+      const pricing = this.pricing[category];
+      let kwhUsageCost;
+      if (category === "basic") {
+        const sumActualCost = data.reduce((acc, d) => acc + (d.actualCost || 0), 0);
+        kwhUsageCost = sumActualCost > 0 ? sumActualCost : sumKwhUsage * pricing;
+      } else {
+        kwhUsageCost = sumKwhUsage * pricing;
       }
-      let kwhUsageCost = sumKwhUsage * pricing;
       return {
         category,
         sumKwhUsage,
         kwhUsageCost,
-      }
+      };
     }
 
     // increment() {
