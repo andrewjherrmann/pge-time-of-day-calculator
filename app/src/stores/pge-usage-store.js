@@ -48,8 +48,9 @@ export const usePgeUsageStore = defineStore('pge-usage', {
 
       const raw = this.historicalData;
       const processed = [];
-      let minDateTime = null;
-      let maxDateTime = null;
+      const monthNames = Info.months();
+      let minTs = Number.POSITIVE_INFINITY;
+      let maxTs = Number.NEGATIVE_INFINITY;
 
       for (let i = 0; i < raw.length; i++) {
         const row = raw[i];
@@ -59,53 +60,50 @@ export const usePgeUsageStore = defineStore('pge-usage', {
         let kwhUsage = Number.parseFloat(row["USAGE (kWh)"]);
         if (Number.isNaN(kwhUsage)) kwhUsage = 0;
 
-        const startDateTime = DateTime.fromFormat(`${date} ${startTime}`, "yyyy-MM-dd HH:mm");
-        const endDateTime = DateTime.fromFormat(`${date} ${endTime}`, "yyyy-MM-dd HH:mm").plus({ minute: 1 }).minus({ millisecond: 1 });
-        const dayOfWeek = startDateTime.toLocaleString({ weekday: 'long' });
-        const monthName = startDateTime.toLocaleString({ month: 'long' });
-        const month = startDateTime.month;
-        const year = startDateTime.year;
+        const startStr = `${date} ${startTime}`;
+        const endStr = `${date} ${endTime}`;
+        const startDate = new Date(startStr);
+        const endDate = new Date(endStr);
+        const startTs = startDate.getTime();
+        const endTs = endDate.getTime();
+
+        if (Number.isNaN(startTs)) continue;
+
+        const month = startDate.getMonth() + 1;
+        const year = startDate.getFullYear();
+        const monthName = monthNames[month - 1];
+        const day = startDate.getDay();
+        const hour = startDate.getHours();
 
         let timeOfDayBucket;
-        if (["Saturday", "Sunday"].includes(dayOfWeek)) {
-          timeOfDayBucket = "offPeak";
-        } else if ((startDateTime.hour >= 0 && startDateTime.hour < 7) || startDateTime.hour >= 21) {
-          timeOfDayBucket = "offPeak";
-        } else if (startDateTime.hour >= 7 && startDateTime.hour < 17) {
-          timeOfDayBucket = "midPeak";
-        } else {
-          timeOfDayBucket = "onPeak";
-        }
+        const isWeekend = day === 0 || day === 6;
+        if (isWeekend) timeOfDayBucket = "offPeak";
+        else if (hour < 7 || hour >= 21) timeOfDayBucket = "offPeak";
+        else if (hour < 17) timeOfDayBucket = "midPeak";
+        else timeOfDayBucket = "onPeak";
 
         processed.push({
           date,
           startTime,
           endTime,
           kwhUsage,
-          startDateTime,
-          endDateTime,
-          dayOfWeek,
-          monthName,
           month,
           year,
+          monthName,
           timeOfDayBucket,
         });
 
-        if (startDateTime.isValid && (minDateTime === null || startDateTime < minDateTime)) {
-          minDateTime = startDateTime;
-        }
-        if (endDateTime.isValid && (maxDateTime === null || endDateTime > maxDateTime)) {
-          maxDateTime = endDateTime;
-        }
+        if (startTs < minTs) minTs = startTs;
+        if (!Number.isNaN(endTs) && endTs > maxTs) maxTs = endTs;
       }
 
       this.historicalData = processed;
-      this.dateRange.minDateTime = minDateTime;
-      this.dateRange.maxDateTime = maxDateTime;
-      this.dateRange.minMonth = minDateTime?.month ?? null;
-      this.dateRange.minYear = minDateTime?.year ?? null;
-      this.dateRange.maxMonth = maxDateTime?.month ?? null;
-      this.dateRange.maxYear = maxDateTime?.year ?? null;
+      this.dateRange.minDateTime = Number.isFinite(minTs) ? DateTime.fromMillis(minTs) : null;
+      this.dateRange.maxDateTime = Number.isFinite(maxTs) ? DateTime.fromMillis(maxTs) : null;
+      this.dateRange.minMonth = this.dateRange.minDateTime?.month ?? null;
+      this.dateRange.minYear = this.dateRange.minDateTime?.year ?? null;
+      this.dateRange.maxMonth = this.dateRange.maxDateTime?.month ?? null;
+      this.dateRange.maxYear = this.dateRange.maxDateTime?.year ?? null;
     },
     processPricing() {
       this.processing = "Processing Pricing";
